@@ -67,8 +67,6 @@ Array.prototype.remove = function(object){
 }
 
 var manager = new GameManager();
-manager.createGame(["test"], 420);
-
 
 /* Socket IO Cancer Below */
 io.on('connection', function(socket) {
