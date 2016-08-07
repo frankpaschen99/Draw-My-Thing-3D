@@ -6,7 +6,6 @@ class Game {
     this.id = _id;
     this.drawing = this.pickStartingPlayer();
     this.word = this.pickRandomWord();  // take from dictionary
-    console.log(this.word);
   }
   /* Randomly chooses the first player to draw */
   pickStartingPlayer() {
@@ -19,6 +18,9 @@ class Game {
   }
   pickRandomWord() {
     return fs.readFileSync("words.txt", 'utf8').split('\n')[Math.floor(Math.random()*459)];
+  }
+  joinGame(_client) {
+    this.clients.push(_client);
   }
   run() {
 
@@ -34,6 +36,11 @@ class GameManager {
   /* Takes an array of clients as well as a unique lobby ID */
   createGame(_clients, _id) {
     this.games.push(new Game(_clients, _id));
+  }
+  createGameOrJoin(_socket, _nickname, _id) {
+    // game already exists
+    if (this.games.indexOf(this.getGameFromID(_id)) != null) this.getGameFromID(_id).joinGame(new Client(_socket, _nickname));
+    else this.createGame([new Client(_socket, _nickname)], _id);
   }
   /* Takes an integer ID and returns the game object associated with it */
   getGameFromID(_id) {
@@ -60,15 +67,19 @@ Array.prototype.remove = function(object){
 
 var manager = new GameManager();
 manager.createGame(["test"], 420);
+
+
 /* Socket IO Cancer Below */
 io.on('connection', function(socket) {
-  socket.on('joingame', function(id, nickname) {
-    socket.join(id);
+  socket.on('joingame', function(id, nickname) {  // receive lobbyid and user's nickname
+    manager.createGameOrJoin(socket, nickname, id);
+    socket.join(id);  // join a new room with the lobbyid
   });
 });
 
 // Emit to a specific room: io.to('roomid').emit('event', 'content');
 // We'll need to send each client in each room the chat/drawings
+// Each room must have its own Game instance
 
 // The client needs to wait for events so the server can send shit to their room.
 /*
