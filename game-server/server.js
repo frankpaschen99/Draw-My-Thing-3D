@@ -9,7 +9,7 @@ class Game {
   }
   /* Randomly chooses the first player to draw */
   pickStartingPlayer() {
-    this.drawing = this.clients[Math.floor(Math.random()*this.clients.length)];
+    return this.clients[Math.floor(Math.random()*this.clients.length)];
   }
   /* Sets the next player as the drawer */
   getNextPlayer(lastPlayer) {
@@ -24,10 +24,16 @@ class Game {
     console.log("Player joined game #" + this.id + "! Nickname: " + _client.nickname);
   }
   run() {
-
+    // draw text, unlock the drawing board, etc...
+    // everything the player sees and interacts with goes here
   }
-  guess(text, client) {
-
+  guess(content, socket) {
+    if (content == this.word) getClientFromSocket(socket).addPoints(50);
+    // todo: do more than just add points
+  }
+  getClientFromSocket(socket) {
+    for (var i = 0; i < this.clients.length; i++)
+    if (this.clients[i].socket == socket) return this.clients[i];
   }
 }
 class GameManager {
@@ -46,7 +52,7 @@ class GameManager {
   /* Takes an integer ID and returns the game object associated with it */
   getGameFromID(_id) {
     for (var i = 0; i < this.games.length; i++)
-      if (this.games[i].id == _id) return this.games[i];
+    if (this.games[i].id == _id) return this.games[i];
   }
 }
 class Client {
@@ -61,9 +67,7 @@ class Client {
 }
 Array.prototype.remove = function(object){
   var index = this.indexOf(object);
-  if(index > -1){
-    this.splice(index, 1);
-  }
+  if(index > -1) this.splice(index, 1);
 }
 
 var manager = new GameManager();
@@ -73,7 +77,13 @@ io.on('connection', function(socket) {
   socket.on('joingame', function(id, nickname) {  // receive lobbyid and user's nickname
     manager.createGameOrJoin(socket.id, nickname, id);
     socket.join(id);  // join a new room with the lobbyid
-    io.to(id).emit('startgame', manager.getGameFromID(id)); // must be implemented clientside
+    //io.to(id).emit('startgame', manager.getGameFromID(id)); // must be implemented clientside
+  });
+  socket.on('chat', function(socket, content, gameid) {   // called whenever a chat message is sent
+    manager.getGameFromID(gameid).guess(content, socket);
+  });
+  socket.on('startgame', function(gameid) {   // called when all clients are ready
+    manager.getGameFromID(gameid).run();
   });
 });
 
@@ -84,9 +94,9 @@ io.on('connection', function(socket) {
 // The client needs to wait for events so the server can send shit to their room.
 /*
 Example (clientside):
-  socket.on('message', function(data) {
-   console.log('Incoming message:', data);
-  });
+socket.on('message', function(data) {
+console.log('Incoming message:', data);
+});
 And serverside:
-  io.to('roomid').emit('message', 'what is going on, party people?');
+io.to('roomid').emit('message', 'what is going on, party people?');
 */
