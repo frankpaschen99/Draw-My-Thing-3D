@@ -13,3 +13,6 @@ Round System
 	- Playas and homies alike gon take turns drawin on alex's whiteboard
 	- folks in the chat have 60 seconds (1 MINUTE!!) to guess the drawin
 	- when 60 secs is up, the word is revealed if not everyone has guessed it already
+Main Server
+	- yoooo, how we gon do shit without a server?? wit nodejs we gon have a master server that will handle
+		the systems listed above
