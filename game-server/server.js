@@ -1,10 +1,12 @@
 var io = require('socket.io')(9001);
-
+const fs = require('fs');
 class Game {
   constructor(_clients, _id) {
     this.clients = _clients;
     this.id = _id;
     this.drawing = this.pickStartingPlayer();
+    this.word = this.pickRandomWord();  // take from dictionary
+    console.log(this.word);
   }
   /* Randomly chooses the first player to draw */
   pickStartingPlayer() {
@@ -13,7 +15,16 @@ class Game {
   /* Sets the next player as the drawer */
   getNextPlayer(lastPlayer) {
     nextIndex = this.clients.indexOf(lastPlayer)+1;
-    nextIndex > this.clients.length-1 ? this.drawing = this.clients[0] : this.drawing = this.clients[nextIndex];
+    if (nextIndex > this.clients.length-1) return this.clients[0]; else return this.clients[nextIndex];
+  }
+  pickRandomWord() {
+    return fs.readFileSync("words.txt", 'utf8').split('\n')[Math.floor(Math.random()*459)];
+  }
+  run() {
+
+  }
+  guess(text) {
+
   }
 }
 class GameManager {
@@ -34,6 +45,10 @@ class Client {
   constructor(_socket, _nickname){
     this.socket = _socket;
     this.nickname = _nickname;
+    this.score = 0;
+  }
+  addPoints(pts) {
+    this.score += pts;
   }
 }
 Array.prototype.remove = function(object){
@@ -44,10 +59,10 @@ Array.prototype.remove = function(object){
 }
 
 var manager = new GameManager();
-
+manager.createGame(["test"], 420);
 /* Socket IO Cancer Below */
 io.on('connection', function(socket) {
-  socket.on('joingame', function(id) {
+  socket.on('joingame', function(id, nickname) {
     socket.join(id);
   });
 });
