@@ -16,9 +16,11 @@ class Game {
     nextIndex = this.clients.indexOf(lastPlayer)+1;
     if (nextIndex > this.clients.length-1) return this.clients[0]; else return this.clients[nextIndex];
   }
+  /* returns a random word for a 459-word file */
   pickRandomWord() {
     return fs.readFileSync("words.txt", 'utf8').split('\n')[Math.floor(Math.random()*459)];
   }
+  /* puts a client into the game. takes a Client object for the parameter */
   joinGame(_client) {
     this.clients.push(_client);
     console.log("Player joined game #" + this.id + "! Nickname: " + _client.nickname);
@@ -27,10 +29,14 @@ class Game {
     // draw text, unlock the drawing board, etc...
     // everything the player sees and interacts with goes here
   }
+  /* validates a users' guess. Takes a string (message) and a socket.id */
   guess(content, socket) {
-    if (content == this.word) getClientFromSocket(socket).addPoints(50);
+    client = getClientFromSocket(socket);
+    if (content == this.word) client.addPoints(50);
+    console.log(client.nickname + " guessed the word correctly!");
     // todo: do more than just add points
   }
+  /* returns the Client objcet that corrosponds to a socket. Takes a socket.id */
   getClientFromSocket(socket) {
     for (var i = 0; i < this.clients.length; i++)
     if (this.clients[i].socket == socket) return this.clients[i];
@@ -40,11 +46,12 @@ class GameManager {
   constructor() {
     this.games = [];
   }
-  /* Takes an array of clients as well as a unique lobby ID */
+  /* Creates a new Game. Takes an array of clients and a unique lobby ID */
   createGame(_clients, _id) {
     this.games.push(new Game(_clients, _id));
     console.log("New game created! id: " + _id);
   }
+  /* Puts a player in a game if it already exists, creates one if not. Takes a socket.id, string nickname, number gameid*/
   createGameOrJoin(_socket, _nickname, _id) {
     if (this.games.indexOf(this.getGameFromID(_id)) >= 0) this.getGameFromID(_id).joinGame(new Client(_socket, _nickname)); // game already exists, jou
     else this.createGame([new Client(_socket, _nickname)], _id);  // game doesn't exist, create a new one and join it
