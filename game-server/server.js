@@ -21,11 +21,12 @@ class Game {
   }
   joinGame(_client) {
     this.clients.push(_client);
+    console.log("Player joined game #" + this.id + "! Nickname: " + _client.nickname);
   }
   run() {
 
   }
-  guess(text) {
+  guess(text, client) {
 
   }
 }
@@ -36,11 +37,11 @@ class GameManager {
   /* Takes an array of clients as well as a unique lobby ID */
   createGame(_clients, _id) {
     this.games.push(new Game(_clients, _id));
+    console.log("New game created! id: " + _id);
   }
   createGameOrJoin(_socket, _nickname, _id) {
-    // game already exists
-    if (this.games.indexOf(this.getGameFromID(_id)) != null) this.getGameFromID(_id).joinGame(new Client(_socket, _nickname));
-    else this.createGame([new Client(_socket, _nickname)], _id);
+    if (this.games.indexOf(this.getGameFromID(_id)) >= 0) this.getGameFromID(_id).joinGame(new Client(_socket, _nickname)); // game already exists, jou
+    else this.createGame([new Client(_socket, _nickname)], _id);  // game doesn't exist, create a new one and join it
   }
   /* Takes an integer ID and returns the game object associated with it */
   getGameFromID(_id) {
@@ -72,8 +73,9 @@ manager.createGame(["test"], 420);
 /* Socket IO Cancer Below */
 io.on('connection', function(socket) {
   socket.on('joingame', function(id, nickname) {  // receive lobbyid and user's nickname
-    manager.createGameOrJoin(socket, nickname, id);
+    manager.createGameOrJoin(socket.id, nickname, id);
     socket.join(id);  // join a new room with the lobbyid
+    io.to(id).emit('startgame', manager.getGameFromID(id)); // must be implemented clientside
   });
 });
 
