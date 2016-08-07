@@ -25,9 +25,13 @@ class Game {
     this.clients.push(_client);
     console.log("Player joined game #" + this.id + "! Nickname: " + _client.nickname);
   }
+  leaveGame(_socket) {
+    this.clients.remove(getClientFromSocket(_socket));
+  }
   run() {
     // draw text, unlock the drawing board, etc...
     // everything the player sees and interacts with goes here
+    console.log("Game is now running!");
   }
   /* validates a users' guess. Takes a string (message) and a socket.id */
   guess(content, socket) {
@@ -61,6 +65,13 @@ class GameManager {
     for (var i = 0; i < this.games.length; i++)
     if (this.games[i].id == _id) return this.games[i];
   }
+  /* Really ugly and not sure if it works. Will improve later. */
+  leaveGame(_socket) {
+    for (var i = 0; i < this.games.length; i++)
+      for (var j = 0; j < this.games[i].clients.length; j++)
+        if (this.games[i].clients[j].socket == _socket)
+          this.games[i].leaveGame(_socket);
+  }
 }
 class Client {
   constructor(_socket, _nickname){
@@ -83,14 +94,17 @@ var manager = new GameManager();
 io.on('connection', function(socket) {
   socket.on('joingame', function(id, nickname) {  // receive lobbyid and user's nickname
     manager.createGameOrJoin(socket.id, nickname, id);
-    socket.join(id);  // join a new room with the lobbyid
-    //io.to(id).emit('startgame', manager.getGameFromID(id)); // must be implemented clientside
+    socket.join(String(id));  // TODO: this doesn't work. It only works outside of socket.on. Find a fix.
+    console.log(socket.rooms);
   });
   socket.on('chat', function(socket, content, gameid) {   // called whenever a chat message is sent
     manager.getGameFromID(gameid).guess(content, socket);
   });
   socket.on('startgame', function(gameid) {   // called when all clients are ready
     manager.getGameFromID(gameid).run();
+  });
+  socket.on('disconnect', function() {
+    manager.leaveGame(socket.id);
   });
 });
 
@@ -107,3 +121,5 @@ console.log('Incoming message:', data);
 And serverside:
 io.to('roomid').emit('message', 'what is going on, party people?');
 */
+
+// Todo: on disconnect of player, check if there are zero people in the lobby. If so, destroy the Game object
