@@ -44,7 +44,23 @@ Array.prototype.remove = function(object){
 }
 
 var manager = new GameManager();
-manager.createGame(["billy", "bob", "sally", "jane"], 420);
 
-var game = manager.getGameFromID(420);
-console.log(game.id);
+/* Socket IO Cancer Below */
+io.on('connection', function(socket) {
+  socket.on('joingame', function(id) {
+    socket.join(id);
+  });
+});
+
+// Emit to a specific room: io.to('roomid').emit('event', 'content');
+// We'll need to send each client in each room the chat/drawings
+
+// The client needs to wait for events so the server can send shit to their room.
+/*
+Example (clientside):
+  socket.on('message', function(data) {
+   console.log('Incoming message:', data);
+  });
+And serverside:
+  io.to('roomid').emit('message', 'what is going on, party people?');
+*/
