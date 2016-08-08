@@ -27,8 +27,6 @@ class GameManager {
   leaveGame(client) {
     var game = this.getGameFromID(client.gameid);
     game.leaveGame(client);
-    clientmanager.removeClient(client);
-    console.log("Removed a client! Nickname:" + client.nickname + ". Current # of clients: " + clientmanager.clients.length);
   }
 }
 class Client {
@@ -80,9 +78,6 @@ class Game {
   /* Randomly chooses the first player to draw */
   pickStartingPlayer() {
     return this.clients[Math.floor(Math.random()*this.clients.length)];
-    this.clients.forEach(function(index) {
-      console.log(index.nickname);
-    });
   }
   /* Sets the next player as the drawer */
   getNextPlayer(lastPlayer) {
@@ -96,12 +91,11 @@ class Game {
   /* puts a client into the game. takes a Client object for the parameter */
   joinGame(_client) {
     this.clients.push(_client);
-    console.log("Player joined game #" + this.id + "! Nickname: " + _client.nickname);
-    console.log("there are currently " + this.clients.length + " people in the game");
+    clientmanager.addClient(_client);
   }
-  leaveGame(client) {
-    this.clients.remove(client);
-    console.log("leaveGame() called in Game");
+  leaveGame(_client) {
+    this.clients.remove(_client);
+    clientmanager.removeClient(_client);
   }
   run() {
     // draw text, unlock the drawing board, etc...
@@ -111,11 +105,12 @@ class Game {
   /* validates a users' guess. Takes a string (message) and a socket.id */
   guess(content, socket) {
     var client = clientmanager.getClientFromSocket(socket);
-    if (content == this.word) client.addPoints(50);
-    console.log(client.nickname + " guessed the word correctly!");
-    // todo: do more than just add points
+    if (content == this.word) {
+      client.addPoints(50);
+      console.log(client.nickname + " guessed the word correctly!");
+      // todo: do more than just add points
+    }
   }
-
 }
 Array.prototype.remove = function(object){
   var index = this.indexOf(object);
@@ -131,9 +126,8 @@ io.on('connection', function(socket) {
     var clients = clientmanager.getClientsFromGame(gameid);
     clients.forEach(function(index) {
       index.socketobject.emit('chat', content);
-      console.log("sent chat to socket " + index.socket);
     });
-    //manager.getGameFromID(gameid).guess(content, socket.id);
+    manager.getGameFromID(gameid).guess(content, socket.id);
   });
   socket.on('startgame', function(gameid) {   // called when all clients are ready
     manager.getGameFromID(gameid).run();
@@ -145,19 +139,3 @@ io.on('connection', function(socket) {
     if (typeof client != 'undefined') manager.leaveGame(client);
   });
 });
-
-// Emit to a specific room: io.to('roomid').emit('event', 'content');
-// We'll need to send each client in each room the chat/drawings
-// Each room must have its own Game instance
-
-// The client needs to wait for events so the server can send shit to their room.
-/*
-Example (clientside):
-socket.on('message', function(data) {
-console.log('Incoming message:', data);
-});
-And serverside:
-io.to('roomid').emit('message', 'what is going on, party people?');
-*/
-
-// Todo: on disconnect of player, check if there are zero people in the lobby. If so, destroy the Game object
