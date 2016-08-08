@@ -1,8 +1,78 @@
 var io = require('socket.io')(9001);
 const fs = require('fs');
+
+class GameManager {
+  constructor() {
+    this.games = [];
+  }
+  /* Creates a new Game. Takes an array of clients and a unique lobby ID */
+  createGame(_id) {
+    this.games.push(new Game(_id));
+    console.log("New game created! id: " + _id);
+  }
+  /* Puts a player in a game if it already exists, creates one if not. Takes a socket.id, string nickname, number gameid*/
+  createGameOrJoin(_socket, _nickname, _id) {
+    if (this.games.indexOf(this.getGameFromID(_id)) >= 0) {
+      this.getGameFromID(_id).joinGame(new Client(_socket, _nickname, _id)); // game already exists, jou
+    } else {
+      this.createGame(_id);  // game doesn't exist, create a new one and join it
+      clientmanager.addClient(new Client(_socket, _nickname, _id));
+    }
+  }
+  /* Takes an integer ID and returns the game object associated with it */
+  getGameFromID(_id) {
+    for (var i = 0; i < this.games.length; i++)
+    if (this.games[i].id == _id) return this.games[i];
+  }
+  leaveGame(client) {
+    var game = this.getGameFromID(client.gameid);
+    game.leaveGame(client);
+    clientmanager.removeClient(client);
+    console.log("Removed a client! Nickname:" + client.nickname + ". Current # of clients: " + clientmanager.clients.length);
+  }
+}
+class Client {
+  constructor(_socket, _nickname, _gameid){
+    this.socketobject = _socket;
+    this.socket = _socket.id
+    this.gameid = _gameid; // stores game id the client is in
+    this.nickname = _nickname;
+    this.score = 0;
+  }
+  addPoints(pts) {
+    this.score += pts;
+  }
+}
+class ClientManager {
+  constructor() {
+    this.clients = [];
+  }
+  /* returns the Client objcet that corrosponds to a socket. Takes a socket.id */
+  getClientFromSocket(socket) {
+    for (var i = 0; i < this.clients.length; i++)
+    if (this.clients[i].socket == socket) return this.clients[i];
+  }
+  /* returns an array of Client objects that are in a game */
+  getClientsFromGame(_gameid) {
+    var clientsFromGame = [];
+    for (var i = 0; i < this.clients.length; i++) {
+      if (this.clients[i].gameid = _gameid)
+        clientsFromGame.push(this.clients[i]);
+    }
+    return clientsFromGame;
+  }
+  addClient(client) {
+    this.clients.push(client);
+  }
+  removeClient(client) {
+    this.clients.remove(client);
+  }
+}
+var manager = new GameManager();
+var clientmanager = new ClientManager();
 class Game {
-  constructor(_clients, _id) {
-    this.clients = _clients;
+  constructor(_id) {
+    this.clients = clientmanager.getClientsFromGame(_id);
     this.id = _id;
     this.drawing = this.pickStartingPlayer();
     this.word = this.pickRandomWord();  // take from dictionary
@@ -10,6 +80,9 @@ class Game {
   /* Randomly chooses the first player to draw */
   pickStartingPlayer() {
     return this.clients[Math.floor(Math.random()*this.clients.length)];
+    this.clients.forEach(function(index) {
+      console.log(index.nickname);
+    });
   }
   /* Sets the next player as the drawer */
   getNextPlayer(lastPlayer) {
@@ -24,9 +97,11 @@ class Game {
   joinGame(_client) {
     this.clients.push(_client);
     console.log("Player joined game #" + this.id + "! Nickname: " + _client.nickname);
+    console.log("there are currently " + this.clients.length + " people in the game");
   }
-  leaveGame(_socket) {
-    this.clients.remove(getClientFromSocket(_socket));
+  leaveGame(client) {
+    this.clients.remove(client);
+    console.log("leaveGame() called in Game");
   }
   run() {
     // draw text, unlock the drawing board, etc...
@@ -35,76 +110,39 @@ class Game {
   }
   /* validates a users' guess. Takes a string (message) and a socket.id */
   guess(content, socket) {
-    client = getClientFromSocket(socket);
+    var client = clientmanager.getClientFromSocket(socket);
     if (content == this.word) client.addPoints(50);
     console.log(client.nickname + " guessed the word correctly!");
     // todo: do more than just add points
   }
-  /* returns the Client objcet that corrosponds to a socket. Takes a socket.id */
-  getClientFromSocket(socket) {
-    for (var i = 0; i < this.clients.length; i++)
-    if (this.clients[i].socket == socket) return this.clients[i];
-  }
-}
-class GameManager {
-  constructor() {
-    this.games = [];
-  }
-  /* Creates a new Game. Takes an array of clients and a unique lobby ID */
-  createGame(_clients, _id) {
-    this.games.push(new Game(_clients, _id));
-    console.log("New game created! id: " + _id);
-  }
-  /* Puts a player in a game if it already exists, creates one if not. Takes a socket.id, string nickname, number gameid*/
-  createGameOrJoin(_socket, _nickname, _id) {
-    if (this.games.indexOf(this.getGameFromID(_id)) >= 0) this.getGameFromID(_id).joinGame(new Client(_socket, _nickname)); // game already exists, jou
-    else this.createGame([new Client(_socket, _nickname)], _id);  // game doesn't exist, create a new one and join it
-  }
-  /* Takes an integer ID and returns the game object associated with it */
-  getGameFromID(_id) {
-    for (var i = 0; i < this.games.length; i++)
-    if (this.games[i].id == _id) return this.games[i];
-  }
-  /* Really ugly and not sure if it works. Will improve later. */
-  leaveGame(_socket) {
-    for (var i = 0; i < this.games.length; i++)
-      for (var j = 0; j < this.games[i].clients.length; j++)
-        if (this.games[i].clients[j].socket == _socket)
-          this.games[i].leaveGame(_socket);
-  }
-}
-class Client {
-  constructor(_socket, _nickname){
-    this.socket = _socket;
-    this.nickname = _nickname;
-    this.score = 0;
-  }
-  addPoints(pts) {
-    this.score += pts;
-  }
+
 }
 Array.prototype.remove = function(object){
   var index = this.indexOf(object);
   if(index > -1) this.splice(index, 1);
 }
 
-var manager = new GameManager();
-
 /* Socket IO Cancer Below */
 io.on('connection', function(socket) {
   socket.on('joingame', function(id, nickname) {  // receive lobbyid and user's nickname
-    manager.createGameOrJoin(socket.id, nickname, id);
-    socket.join(String(id));  // TODO: this doesn't work. It only works outside of socket.on. Find a fix.
-    console.log(socket.rooms);
+    manager.createGameOrJoin(socket, nickname, id);
   });
-  socket.on('chat', function(socket, content, gameid) {   // called whenever a chat message is sent
-    manager.getGameFromID(gameid).guess(content, socket);
+  socket.on('chat_message', function(content, gameid) {   // called whenever a chat message is sent
+    var clients = clientmanager.getClientsFromGame(gameid);
+    clients.forEach(function(index) {
+      index.socketobject.emit('chat', content);
+      console.log("sent chat to socket " + index.socket);
+    });
+    //manager.getGameFromID(gameid).guess(content, socket.id);
   });
   socket.on('startgame', function(gameid) {   // called when all clients are ready
     manager.getGameFromID(gameid).run();
   });
   socket.on('disconnect', function() {
-    manager.leaveGame(socket.id);
+    // Get client associated with the socket
+    // Remove from ClientManager and the Game they are in
+    var client = clientmanager.getClientFromSocket(socket.id);
+    if (typeof client != 'undefined') manager.leaveGame(client);
   });
 });
 
