@@ -28,6 +28,9 @@ class GameManager {
     var game = this.getGameFromID(client.gameid);
     game.leaveGame(client);
   }
+  sendChatMessage(gameid, content) {
+    this.getGameFromID(gameid).sendChatMessage(content);
+  }
 }
 class Client {
   constructor(_socket, _nickname, _gameid){
@@ -111,6 +114,11 @@ class Game {
       // todo: do more than just add points
     }
   }
+  sendChatMessage(content) {
+    this.clients.forEach(function(index) {
+      index.socketobject.emit('chat', content);
+    });
+  }
 }
 Array.prototype.remove = function(object){
   var index = this.indexOf(object);
@@ -123,18 +131,13 @@ io.on('connection', function(socket) {
     manager.createGameOrJoin(socket, nickname, id);
   });
   socket.on('chat_message', function(content, gameid) {   // called whenever a chat message is sent
-    var clients = clientmanager.getClientsFromGame(gameid);
-    clients.forEach(function(index) {
-      index.socketobject.emit('chat', content);
-    });
+    manager.sendChatMessage(gameid, content);
     manager.getGameFromID(gameid).guess(content, socket.id);
   });
   socket.on('startgame', function(gameid) {   // called when all clients are ready
     manager.getGameFromID(gameid).run();
   });
-  socket.on('disconnect', function() {
-    // Get client associated with the socket
-    // Remove from ClientManager and the Game they are in
+  socket.on('disconnect', function() {  // get client object and remove them from the game
     var client = clientmanager.getClientFromSocket(socket.id);
     if (typeof client != 'undefined') manager.leaveGame(client);
   });
