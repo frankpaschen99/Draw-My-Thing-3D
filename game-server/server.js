@@ -7,22 +7,26 @@ class GameManager {
   }
   /* Creates a new Game. Takes an array of clients and a unique lobby ID */
   createGame(_id) {
-    this.games.push(new Game(_id));
-    console.log("New game created! id: " + _id);
+    var newGame = new Game(_id);
+    this.games.push(newGame);
+    return newGame;
   }
   /* Puts a player in a game if it already exists, creates one if not. Takes a socket.id, string nickname, number gameid*/
   createGameOrJoin(_socket, _nickname, _id) {
-    if (this.games.indexOf(this.getGameFromID(_id)) >= 0) {
-      this.getGameFromID(_id).joinGame(new Client(_socket, _nickname, _id)); // game already exists, jou
+    console.log("createGameOrJoin() called! Socket: " + _socket + ", Nickname:" + _nickname + ", id:" + _id);
+    /*if (this.games.indexOf(this.getGameFromID(_id)) >= 0) {
+      this.getGameFromID(_id).joinGame(new Client(_socket, _nickname, _id)); // game already exists, join it
+      console.log("Player " + _nickname + " is joining game #" + _id);
     } else {
       this.createGame(_id);  // game doesn't exist, create a new one and join it
-      clientmanager.addClient(new Client(_socket, _nickname, _id));
+      console.log("Player " + _nickname + " created game #" + _id);
     }
+    this.getGameFromID(_id).joinGame(new Client(_socket, _nickname, _id)); */
+    this.createGame(_id).joinGame(new Client(_socket, _nickname, _id));
   }
   /* Takes an integer ID and returns the game object associated with it */
   getGameFromID(_id) {
-    for (var i = 0; i < this.games.length; i++)
-    if (this.games[i].id == _id) return this.games[i];
+    for (var i = 0; i < this.games.length; i++) if (this.games[i].id == _id) return this.games[i];
   }
   leaveGame(client) {
     var game = this.getGameFromID(client.gameid);
@@ -34,7 +38,7 @@ class GameManager {
 }
 class Client {
   constructor(_socket, _nickname, _gameid){
-    this.socketobject = _socket;
+    this.socketObject = _socket;
     this.socket = _socket.id
     this.gameid = _gameid; // stores game id the client is in
     this.nickname = _nickname;
@@ -53,15 +57,6 @@ class ClientManager {
     for (var i = 0; i < this.clients.length; i++)
     if (this.clients[i].socket == socket) return this.clients[i];
   }
-  /* returns an array of Client objects that are in a game */
-  getClientsFromGame(_gameid) {
-    var clientsFromGame = [];
-    for (var i = 0; i < this.clients.length; i++) {
-      if (this.clients[i].gameid = _gameid)
-        clientsFromGame.push(this.clients[i]);
-    }
-    return clientsFromGame;
-  }
   addClient(client) {
     this.clients.push(client);
   }
@@ -73,14 +68,15 @@ var manager = new GameManager();
 var clientmanager = new ClientManager();
 class Game {
   constructor(_id) {
-    this.clients = clientmanager.getClientsFromGame(_id);
+    console.log("New game " + _id + " created!");
+    this.clients = [];
     this.id = _id;
-    this.drawing = this.pickStartingPlayer();
+    this.drawing = null;
     this.word = this.pickRandomWord();  // take from dictionary
   }
   /* Randomly chooses the first player to draw */
   pickStartingPlayer() {
-    return this.clients[Math.floor(Math.random()*this.clients.length)];
+    this.drawing = this.clients[Math.floor(Math.random()*this.clients.length)].nickname;
   }
   /* Sets the next player as the drawer */
   getNextPlayer(lastPlayer) {
@@ -91,19 +87,27 @@ class Game {
   pickRandomWord() {
     return fs.readFileSync("words.txt", 'utf8').split('\n')[Math.floor(Math.random()*459)];
   }
+  getWordLength() {
+    return this.word.length-1;
+  }
   /* puts a client into the game. takes a Client object for the parameter */
   joinGame(_client) {
     this.clients.push(_client);
     clientmanager.addClient(_client);
+    console.log("Player " + _client.nickname + " joined! Number of connnected clients: " + this.clients.length);
+    
+    this.run(); // will be called when the server recieves a call that all players are ready.
   }
   leaveGame(_client) {
+    if (_client.nickname == this.drawing) {
+      // oh no! the drawing player left! Handle this appropriately. (Clear board, restart round, pick new drawing);
+    }
     this.clients.remove(_client);
     clientmanager.removeClient(_client);
+    console.log("Player " + _client.nickname + " left! Number of connected clients: " + this.clients.length);
   }
   run() {
-    // draw text, unlock the drawing board, etc...
-    // everything the player sees and interacts with goes here
-    console.log("Game is now running!");
+    this.pickStartingPlayer();
   }
   /* validates a users' guess. Takes a string (message) and a socket.id */
   guess(content, socket) {
@@ -116,7 +120,7 @@ class Game {
   }
   sendChatMessage(content) {
     this.clients.forEach(function(index) {
-      index.socketobject.emit('chat', content);
+      index.socketObject.emit('chat', content);
     });
   }
 }
