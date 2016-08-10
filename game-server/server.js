@@ -1,3 +1,5 @@
+// Dicks out for Harambe
+
 var io = require('socket.io')(9001);
 const fs = require('fs');
 
