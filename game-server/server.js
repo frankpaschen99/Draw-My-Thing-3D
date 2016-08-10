@@ -13,16 +13,7 @@ class GameManager {
   }
   /* Puts a player in a game if it already exists, creates one if not. Takes a socket.id, string nickname, number gameid*/
   createGameOrJoin(_socket, _nickname, _id) {
-    console.log("createGameOrJoin() called! Socket: " + _socket + ", Nickname:" + _nickname + ", id:" + _id);
-    /*if (this.games.indexOf(this.getGameFromID(_id)) >= 0) {
-      this.getGameFromID(_id).joinGame(new Client(_socket, _nickname, _id)); // game already exists, join it
-      console.log("Player " + _nickname + " is joining game #" + _id);
-    } else {
-      this.createGame(_id);  // game doesn't exist, create a new one and join it
-      console.log("Player " + _nickname + " created game #" + _id);
-    }
-    this.getGameFromID(_id).joinGame(new Client(_socket, _nickname, _id)); */
-    this.createGame(_id).joinGame(new Client(_socket, _nickname, _id));
+    if (this.games.indexOf(this.getGameFromID(_id)) >= 0) this.getGameFromID(_id).joinGame(new Client(_socket, _nickname, _id)); else this.createGame(_id).joinGame(new Client(_socket, _nickname, _id));
   }
   /* Takes an integer ID and returns the game object associated with it */
   getGameFromID(_id) {
@@ -95,7 +86,7 @@ class Game {
     this.clients.push(_client);
     clientmanager.addClient(_client);
     console.log("Player " + _client.nickname + " joined! Number of connnected clients: " + this.clients.length);
-    
+
     this.run(); // will be called when the server recieves a call that all players are ready.
   }
   leaveGame(_client) {
@@ -124,9 +115,9 @@ class Game {
     });
   }
 }
-Array.prototype.remove = function(object){
+Array.prototype.remove = function(object) {
   var index = this.indexOf(object);
-  if(index > -1) this.splice(index, 1);
+  if (index > -1) this.splice(index, 1);
 }
 
 /* Socket IO Cancer Below */
