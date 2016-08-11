@@ -25,8 +25,8 @@ class GameManager {
     var game = this.getGameFromID(client.gameid);
     game.leaveGame(client);
   }
-  sendChatMessage(gameid, content) {
-    this.getGameFromID(gameid).sendChatMessage(content);
+  sendChatMessage(gameid, content, socket) {
+    this.getGameFromID(gameid).sendChatMessage(content, socket);
   }
 }
 class Client {
@@ -45,13 +45,13 @@ class ClientManager {
   constructor() {
     this.clients = [];
   }
-  /* returns the Client objcet that corrosponds to a socket. Takes a socket.id */
+  /* returns the Client object that corrosponds to a socket. Takes a socket.id */
   getClientFromSocket(socket) {
-    for (var i = 0; i < this.clients.length; i++)
-    if (this.clients[i].socket == socket) return this.clients[i];
+    for (var i = 0; i < this.clients.length; i++) if (this.clients[i].socket == socket) return this.clients[i];
   }
   addClient(client) {
     this.clients.push(client);
+    console.log(client.socket);
   }
   removeClient(client) {
     this.clients.remove(client);
@@ -111,9 +111,10 @@ class Game {
       // todo: do more than just add points
     }
   }
-  sendChatMessage(content) {
+  // takes String and socket.id (string)
+  sendChatMessage(content, socket) {
     this.clients.forEach(function(index) {
-      index.socketObject.emit('chat', content);
+      index.socketObject.emit('chat', content, clientmanager.getClientFromSocket(socket.id).nickname);
     });
   }
 }
@@ -125,13 +126,22 @@ Array.prototype.remove = function(object) {
 /* Socket IO Cancer Below */
 io.on('connection', function(socket) {
   socket.on('joingame', function(id, nickname) {  // receive lobbyid and user's nickname
+    if (clientmanager.getClientFromSocket(socket.id) != 'undefined') {
+      console.log("WARNING! Client attempted to join another lobby bypassing the interface!");
+      return;
+    }
     manager.createGameOrJoin(socket, nickname, id);
   });
   socket.on('chat_message', function(content, gameid) {   // called whenever a chat message is sent
-    manager.sendChatMessage(gameid, content);
+    if (clientmanager.getClientFromSocket(socket.id).gameid != gameid) {
+      console.log("WARNING! Client attempted to send chat to a game they do not belong in!");
+      return;
+    }
+    manager.sendChatMessage(gameid, content, socket);
     manager.getGameFromID(gameid).guess(content, socket.id);
   });
   socket.on('startgame', function(gameid) {   // called when all clients are ready
+    // Do some sort of validation to ensure users can't start the game whenever they want
     manager.getGameFromID(gameid).run();
   });
   socket.on('disconnect', function() {  // get client object and remove them from the game

@@ -1,9 +1,15 @@
 <script src="https://cdn.socket.io/socket.io-1.4.5.js"></script>
 <script>
 	var socket = io('http://localhost:9001');
-	socket.emit('joingame', 420, "frank");
-	socket.emit("chat_message", "test", 420);
-	socket.on('chat', function(content) {
-		document.write(content);
+	socket.emit('joingame', 420, "frank");	// the lobby system will fill in all these values
+	socket.on('chat', function(content, user) {
+		document.getElementById("chatbox").innerHTML += user + ": " + content + "<br />";
 	});
+	function sendChat() {
+		socket.emit("chat_message", document.getElementById('message').value, 420);
+		document.getElementById('message').value = "";
+	}
 </script>
+<div id="chatbox"></div>
+<input type="text" id="message">
+<button type="button" onclick="sendChat()">Send Chat</button>
