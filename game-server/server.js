@@ -1,6 +1,6 @@
 // Dicks out for Harambe
 
-var io = require('socket.io')(9001);
+var io = require('socket.io')(7865);
 const fs = require('fs');
 
 class GameManager {
@@ -51,7 +51,6 @@ class ClientManager {
   }
   addClient(client) {
     this.clients.push(client);
-    console.log(client.socket);
   }
   removeClient(client) {
     this.clients.remove(client);
@@ -78,10 +77,10 @@ class Game {
   }
   /* returns a random word for a 459-word file */
   pickRandomWord() {
-    return fs.readFileSync("words.txt", 'utf8').split('\n')[Math.floor(Math.random()*459)];
+    return fs.readFileSync("words.txt", 'utf8').split('\n')[Math.floor(Math.random()*459)].trim();
   }
   getWordLength() {
-    return this.word.length-1;
+    return this.word.length;
   }
   /* puts a client into the game. takes a Client object for the parameter */
   joinGame(_client) {
@@ -100,21 +99,36 @@ class Game {
     console.log("Player " + _client.nickname + " left! Number of connected clients: " + this.clients.length);
   }
   run() {
+    console.log("The word is: " + this.word);
     this.pickStartingPlayer();
+    setTimeout(this.endRound.bind(this), 20000);
+  }
+  endRound() {
+    this.sendChatMessage("Round finished! (not really lol)", "SERVER");
+  }
+  endGame() {
+    this.clients.forEach(function(index) {
+      index.socketObject.emit('finished');
+    });
   }
   /* validates a users' guess. Takes a string (message) and a socket.id */
   guess(content, socket) {
     var client = clientmanager.getClientFromSocket(socket);
     if (content == this.word) {
       client.addPoints(50);
-      console.log(client.nickname + " guessed the word correctly!");
-      // todo: do more than just add points
+      this.sendChatMessage(client.nickname + " guessed the word correctly!", "SERVER");
+      return true;
     }
+    return false;
   }
   // takes String and socket.id (string)
   sendChatMessage(content, socket) {
     this.clients.forEach(function(index) {
-      index.socketObject.emit('chat', content, clientmanager.getClientFromSocket(socket.id).nickname);
+      if (socket == "SERVER") {
+        index.socketObject.emit('chat', content, "SERVER");
+      } else {
+        index.socketObject.emit('chat', content, clientmanager.getClientFromSocket(socket.id).nickname);
+      }
     });
   }
 }
@@ -125,11 +139,9 @@ Array.prototype.remove = function(object) {
 
 /* Socket IO Cancer Below */
 io.on('connection', function(socket) {
+  console.log("Socket connected" + socket.id);
   socket.on('joingame', function(id, nickname) {  // receive lobbyid and user's nickname
-    if (clientmanager.getClientFromSocket(socket.id) != 'undefined') {
-      console.log("WARNING! Client attempted to join another lobby bypassing the interface!");
-      return;
-    }
+    socket.emit('joingame', true);
     manager.createGameOrJoin(socket, nickname, id);
   });
   socket.on('chat_message', function(content, gameid) {   // called whenever a chat message is sent
@@ -137,8 +149,7 @@ io.on('connection', function(socket) {
       console.log("WARNING! Client attempted to send chat to a game they do not belong in!");
       return;
     }
-    manager.sendChatMessage(gameid, content, socket);
-    manager.getGameFromID(gameid).guess(content, socket.id);
+    if (!manager.getGameFromID(gameid).guess(content, socket.id)) manager.sendChatMessage(gameid, content, socket);
   });
   socket.on('startgame', function(gameid) {   // called when all clients are ready
     // Do some sort of validation to ensure users can't start the game whenever they want
