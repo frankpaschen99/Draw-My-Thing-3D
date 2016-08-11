@@ -88,7 +88,10 @@ class Game {
     clientmanager.addClient(_client);
     console.log("Player " + _client.nickname + " joined! Number of connnected clients: " + this.clients.length);
 
-    this.run(); // will be called when the server recieves a call that all players are ready.
+    //this.run(); // will be called when the server recieves a call that all players are ready.
+    this.sendPlayerList();
+    this.sendWordLength();
+    this.beginRound();
   }
   leaveGame(_client) {
     if (_client.nickname == this.drawing) {
@@ -97,9 +100,13 @@ class Game {
     this.clients.remove(_client);
     clientmanager.removeClient(_client);
     console.log("Player " + _client.nickname + " left! Number of connected clients: " + this.clients.length);
+    if (this.clients.length == 0) manager.games.remove(this);
+    this.sendPlayerList();
   }
-  run() {
+  beginRound() {
     console.log("The word is: " + this.word);
+    this.sendPlayerList();
+    this.sendWordLength();
     this.pickStartingPlayer();
     setTimeout(this.endRound.bind(this), 20000);
   }
@@ -114,7 +121,7 @@ class Game {
   /* validates a users' guess. Takes a string (message) and a socket.id */
   guess(content, socket) {
     var client = clientmanager.getClientFromSocket(socket);
-    if (content == this.word) {
+    if (content.toLowerCase() == this.word.toLowerCase()) {
       client.addPoints(50);
       this.sendChatMessage(client.nickname + " guessed the word correctly!", "SERVER");
       return true;
@@ -130,6 +137,18 @@ class Game {
         index.socketObject.emit('chat', content, clientmanager.getClientFromSocket(socket.id).nickname);
       }
     });
+  }
+  sendPlayerList() { // called whenever a player disconnects/joins
+    var names = [];
+    this.clients.forEach(function(index) {
+      names.push(index.nickname);
+    });
+    this.clients.forEach(function(index) {
+      index.socketObject.emit('plist', names);
+    });
+  }
+  sendWordLength() {
+    for (var i = 0; i < this.clients.length; i++) this.clients[i].socketObject.emit('wordlength', this.getWordLength());
   }
 }
 Array.prototype.remove = function(object) {
@@ -153,10 +172,24 @@ io.on('connection', function(socket) {
   });
   socket.on('startgame', function(gameid) {   // called when all clients are ready
     // Do some sort of validation to ensure users can't start the game whenever they want
-    manager.getGameFromID(gameid).run();
+    manager.getGameFromID(gameid).beginRound();
+  });
+  socket.on('worldlength', function(gameid) {
+    var game = manager.getGameFromID(gameid);
+    socket.emit('wordlength', game.getWordLength());
   });
   socket.on('disconnect', function() {  // get client object and remove them from the game
     var client = clientmanager.getClientFromSocket(socket.id);
     if (typeof client != 'undefined') manager.leaveGame(client);
   });
 });
+
+/* TODO:
+<23:57:43> "Sorrer": - Server declares client is ready and tells client
+<23:57:58> "Sorrer": - Server declares game is starting in 10 seconds then tells clients
+<23:58:05> "Sorrer": -Server declares game started and tells clients
+
+- Client cannot un-ready
+- handle the drawer disconnecting
+
+*/
