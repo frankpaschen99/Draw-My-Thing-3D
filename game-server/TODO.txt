@@ -1,0 +1,5 @@
+1. Only call beginRound() when all players have 'readied' client-side. beginRound() is currently called
+	multiple times, whenever a client joins the game.
+2. Set up needed sockets: Server waits for all-clear from client, server tells clients game will start in 10
+	seconds, server declares game started and tells clients.
+3. Handle the drawing player disconnecting - Simply begin a new round

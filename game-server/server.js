@@ -62,13 +62,19 @@ class Game {
   constructor(_id) {
     console.log("New game " + _id + " created!");
     this.clients = [];
+    this.readyClients = 0;
     this.id = _id;
     this.drawing = null;
     this.word = this.pickRandomWord();  // take from dictionary
   }
+  ready() {
+    this.readyClients++;
+    this.beginPreRound();
+  }
   /* Randomly chooses the first player to draw */
   pickStartingPlayer() {
-    this.drawing = this.clients[Math.floor(Math.random()*this.clients.length)].nickname;
+    //this.drawing = this.clients[Math.floor(Math.random()*this.clients.length)].nickname;
+    this.drawing = this.clients[0].nickname;
   }
   /* Sets the next player as the drawer */
   getNextPlayer(lastPlayer) {
@@ -88,10 +94,9 @@ class Game {
     clientmanager.addClient(_client);
     console.log("Player " + _client.nickname + " joined! Number of connnected clients: " + this.clients.length);
 
-    //this.run(); // will be called when the server recieves a call that all players are ready.
     this.sendPlayerList();
     this.sendWordLength();
-    this.beginRound();
+    this.sendWord();
   }
   leaveGame(_client) {
     if (_client.nickname == this.drawing) {
@@ -100,18 +105,35 @@ class Game {
     this.clients.remove(_client);
     clientmanager.removeClient(_client);
     console.log("Player " + _client.nickname + " left! Number of connected clients: " + this.clients.length);
-    if (this.clients.length == 0) manager.games.remove(this);
+    if (this.clients.length == 0) {
+      console.log("Game #" + this.id + " removed. Reason: Lobby empty.");
+      manager.games.remove(this);
+    }
     this.sendPlayerList();
+  }
+  beginPreRound() {
+    // Notify all clients that the game will start in 10 seconds
+    if (this.readyClients != this.clients.length) return;
+
+    console.log("beginPreRound() called");
+    this.sendChatMessage("The game will begin in 10 seconds...", "SERVER");
+    setTimeout(this.beginRound.bind(this), 10000);
   }
   beginRound() {
-    console.log("The word is: " + this.word);
-    this.sendPlayerList();
-    this.sendWordLength();
     this.pickStartingPlayer();
-    setTimeout(this.endRound.bind(this), 20000);
+    sendChatMessage(this.drawing + " is drawing!", "SERVER");
+
+    this.clients.forEach(function(index) {
+      index.socketObject.emit('started');
+    });
+
+    /* ROUND STARTED. In 60 seconds, call endRound().*/
+
+    setTimeout(this.endRound.bind(this), 60000);
   }
   endRound() {
-    this.sendChatMessage("Round finished! (not really lol)", "SERVER");
+    this.sendChatMessage("Round finished!", "SERVER");
+    /* ROUND ENDED. Call beginRound() */
   }
   endGame() {
     this.clients.forEach(function(index) {
@@ -139,6 +161,7 @@ class Game {
     });
   }
   sendPlayerList() { // called whenever a player disconnects/joins
+    console.log("sendPlayerList() called!");
     var names = [];
     this.clients.forEach(function(index) {
       names.push(index.nickname);
@@ -149,6 +172,12 @@ class Game {
   }
   sendWordLength() {
     for (var i = 0; i < this.clients.length; i++) this.clients[i].socketObject.emit('wordlength', this.getWordLength());
+  }
+  sendWord() {
+    /*for (var i = 0; i < this.clients.length; i++)
+      if (this.clients[i].nickname = this.drawing)
+        this.clients[i].socketObject.emit('word', this.word*/
+      console.log("sendWord() called");
   }
 }
 Array.prototype.remove = function(object) {
@@ -170,13 +199,9 @@ io.on('connection', function(socket) {
     }
     if (!manager.getGameFromID(gameid).guess(content, socket.id)) manager.sendChatMessage(gameid, content, socket);
   });
-  socket.on('startgame', function(gameid) {   // called when all clients are ready
-    // Do some sort of validation to ensure users can't start the game whenever they want
-    manager.getGameFromID(gameid).beginRound();
-  });
-  socket.on('worldlength', function(gameid) {
-    var game = manager.getGameFromID(gameid);
-    socket.emit('wordlength', game.getWordLength());
+  socket.on('ready', function(gameid) {
+    // server recieved the all-clear from the clients, start their game. Do some validation, make sure they can't start the game by other means.
+    manager.getGameFromID(gameid).ready();
   });
   socket.on('disconnect', function() {  // get client object and remove them from the game
     var client = clientmanager.getClientFromSocket(socket.id);
@@ -184,12 +209,8 @@ io.on('connection', function(socket) {
   });
 });
 
-/* TODO:
-<23:57:43> "Sorrer": - Server declares client is ready and tells client
-<23:57:58> "Sorrer": - Server declares game is starting in 10 seconds then tells clients
-<23:58:05> "Sorrer": -Server declares game started and tells clients
+/*
 
-- Client cannot un-ready
 - handle the drawer disconnecting
 
 */
