@@ -121,7 +121,7 @@ class Game {
   }
   beginRound() {
     this.pickStartingPlayer();
-    sendChatMessage(this.drawing + " is drawing!", "SERVER");
+    this.sendChatMessage(this.drawing + " is drawing!", "SERVER");
 
     this.clients.forEach(function(index) {
       index.socketObject.emit('started');
