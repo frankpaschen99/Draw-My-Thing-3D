@@ -1,8 +1,6 @@
 # Draw-My-Thing-3D
-We's gon remake the classic Draw My Thing by OMGPOP!
 
-screw this its retarded
-
+Client-side code missing??
 
 #### Forgot to add my concept art I made before we started this:
 
